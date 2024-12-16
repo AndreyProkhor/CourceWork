@@ -1,0 +1,334 @@
+{% extends 'adminPanel/base.html' %}
+
+{% block contentExtra %}
+<div class="container mt-4">
+    <h2 class="mb-4">Отчеты по заказам</h2>
+    
+    <!-- Поиск пользователя -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-center position-relative">
+            <input type="text" id="user-search" placeholder="Поиск пользователя..." class="form-control w-50" autocomplete="off">
+            <ul id="suggestions" class="list-group position-absolute w-50" style="display: none; margin-top: 40px; z-index: 1000;"></ul>
+        </div>
+    </div>
+
+    <!-- Таблица заказов -->
+    <div class="table-responsive mb-4" style="display: none;" id="orders-table-container">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID заказа</th>
+                    <th>Дата</th>
+                    <th>Общая стоимость</th>
+                    <th>Статус</th>
+                    <th>Оплачен</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody id="orders-table-body">
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Форма отправки сообщения -->
+    <div class="card" style="display: none;" id="message-form">
+        <div class="card-body">
+            <h3 class="card-title mb-4">Отправить сообщение</h3>
+            <div class="mb-3">
+                <label for="message-subject" class="form-label">Тема</label>
+                <input type="text" class="form-control" id="message-subject" required>
+            </div>
+            <div class="mb-3">
+                <label for="message-content" class="form-label">Сообщение</label>
+                <div id="editor">
+                    <!-- Здесь будет HTML редактор -->
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Предпросмотр сообщения</label>
+                <div id="message-preview" class="border rounded p-3 bg-light">
+                    <!-- Здесь будет предпросмотр сообщения -->
+                </div>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="attach-report">
+                <label class="form-check-label" for="attach-report">Прикрепить PDF-отчет о заказе</label>
+            </div>
+            <button class="btn btn-primary" onclick="sendMessage()">Отправить сообщение</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для просмотра товаров -->
+<div class="modal fade" id="orderItemsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Товары в заказе</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Изображение</th>
+                                <th>Товар</th>
+                                <th>Количество</th>
+                                <th>Цена</th>
+                                <th>Итого</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderItemsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock contentExtra %}
+
+{% block extra_css %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+let selectedUserId = null;
+let selectedOrderId = null;
+let quill = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация Quill редактора
+    quill = new Quill('#editor', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['clean']
+            ]
+        }
+    });
+
+    // Обновление предпросмотра при изменении содержимого
+    quill.on('text-change', function() {
+        updateMessagePreview();
+    });
+
+    // Обработчик изменения темы
+    document.getElementById('message-subject').addEventListener('input', updateMessagePreview);
+
+    const searchInput = document.getElementById('user-search');
+    const suggestionsList = document.getElementById('suggestions');
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        if (query.length < 2) {
+            suggestionsList.style.display = 'none';
+            return;
+        }
+
+        fetch(`/adminPanel/api/users/search/?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                suggestionsList.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(user => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item';
+                        li.textContent = `${user.first_name} ${user.last_name} (${user.email})`;
+                        li.style.cursor = 'pointer';
+                        li.onclick = () => selectUser(user.id);
+                        suggestionsList.appendChild(li);
+                    });
+                    suggestionsList.style.display = 'block';
+                } else {
+                    suggestionsList.style.display = 'none';
+                }
+            });
+    });
+});
+
+function updateMessagePreview() {
+    const subject = document.getElementById('message-subject').value;
+    const messageContent = quill.root.innerHTML;
+    const previewHtml = `
+        <div class="message-preview">
+            <h4>${subject || 'Без темы'}</h4>
+            <div class="message-content">
+                ${messageContent || 'Без содержимого'}
+            </div>
+        </div>
+    `;
+    document.getElementById('message-preview').innerHTML = previewHtml;
+}
+
+function selectUser(userId) {
+    selectedUserId = userId;
+    document.getElementById('suggestions').style.display = 'none';
+    document.getElementById('orders-table-container').style.display = 'block';
+    loadUserOrders(userId);
+}
+
+function loadUserOrders(userId) {
+    fetch(`/adminPanel/api/orders/user/${userId}/`)
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('orders-table-body');
+            tableBody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Заказы не найдены</td></tr>';
+                return;
+            }
+            
+            data.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.id}</td>
+                    <td>${new Date(order.created).toLocaleDateString()}</td>
+                    <td>$${order.total_cost}</td>
+                    <td><span class="badge ${getStatusBadgeClass(order.status)} fs-6 p-2">${order.status}</span></td>
+                    <td>${order.paid ? 'Да' : 'Нет'}</td>
+                    <td>
+                        <button class="btn btn-info btn-sm" onclick="selectOrder(${order.id})">
+                            <i class="fas fa-envelope"></i> Отправить отчет
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки заказов:', error);
+            showError('Ошибка загрузки заказов: ' + error.message);
+        });
+}
+
+function selectOrder(orderId) {
+    selectedOrderId = orderId;
+    document.getElementById('message-form').style.display = 'block';
+    // Прокручиваем к форме сообщения
+    document.getElementById('message-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function sendMessage() {
+    if (!selectedOrderId) {
+        showError('Пожалуйста, выберите заказ');
+        return;
+    }
+
+    const subject = document.getElementById('message-subject').value;
+    if (!subject) {
+        showError('Пожалуйста, введите тему');
+        return;
+    }
+
+    const messageContent = quill.root.innerHTML;
+    if (!messageContent || messageContent === '<p><br></p>') {
+        showError('Пожалуйста, введите сообщение');
+        return;
+    }
+
+    const attachReport = document.getElementById('attach-report').checked;
+
+    // Показываем индикатор загрузки
+    const sendButton = document.querySelector('#message-form button');
+    const originalText = sendButton.innerHTML;
+    sendButton.disabled = true;
+    sendButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Отправка...';
+
+    const data = {
+        order_id: selectedOrderId,
+        subject: subject,
+        message: messageContent,
+        attach_report: attachReport
+    };
+
+    fetch('/mailagent/api/send-order-report/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('Сообщение отправлено успешно');
+            // Очищаем форму
+            document.getElementById('message-subject').value = '';
+            quill.setContents([]);
+            document.getElementById('attach-report').checked = false;
+            document.getElementById('message-preview').innerHTML = '';
+        } else {
+            showError(data.error || 'Ошибка отправки сообщения');
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        showError('Ошибка отправки сообщения');
+    })
+    .finally(() => {
+        // Восстанавливаем кнопку
+        sendButton.disabled = false;
+        sendButton.innerHTML = originalText;
+    });
+}
+
+function getStatusBadgeClass(status) {
+    switch (status) {
+        case 'Pending': return 'bg-warning';
+        case 'Processing': return 'bg-info';
+        case 'Shipped': return 'bg-primary';
+        case 'Delivered': return 'bg-success';
+        case 'Cancelled': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showSuccess(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+    alertDiv.style.zIndex = '1050';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+
+function showError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3';
+    alertDiv.style.zIndex = '1050';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+</script>
+{% endblock extra_js %}

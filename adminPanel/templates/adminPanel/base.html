@@ -1,0 +1,51 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block title %}Магазин{% endblock title %}
+{% block search %}
+{% endblock search %}
+{% block content %}
+ <div class="llist d-flex">
+    <div class="sidebar">
+        <h3>Управление</h3>
+        <div class="polosa-list">
+            <ul>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url "main:product_list" %}">НАЗАД</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:user_list' %}">Пользователи</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:product_list' %}">Товары</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:category_list' %}">Категории</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:cluster_management' %}">Упр. кластерами</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:purchase_analysis' %}">Анализ покупок</a>
+                </li>
+                {% comment %} <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:general_sales_analysis' %}">Анализ продаж</a>
+                </li> {% endcomment %}
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:profit_forecasting' %}">Прогноз прибыли</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:order_management' %}">Упр. заказами</a>
+                </li>
+                <li {% if not currentwork %}class = "selected"{% endif %}>
+                    <a href="{% url 'adminPanel:generate_order_reports' %}">Отчеты по заказам</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="content">
+        {% block contentExtra %}
+        {% endblock contentExtra %}
+    </div>
+ </div>
+{% endblock content %}

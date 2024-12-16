@@ -1,0 +1,345 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Прогнозирование прибыли{% endblock %}
+
+{% block contentExtra %}
+<div class="window-category d-flex justify-content-center align-items-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Прогнозирование прибыли</h2>
+        <div class="mb-4">
+            <div class="d-flex justify-content-center position-relative">
+                <input type="text" id="category-search" placeholder="Поиск категории..." class="form-control w-50" autocomplete="off">
+                <button id="getForecast" class="home-btn ms-2" disabled>
+                    Получить прогноз
+                </button>
+                <ul id="suggestions" class="list-group position-absolute w-50" style="display: none; margin-top: 40px; z-index: 1000;"></ul>
+            </div>
+        </div>
+        <div class="cart-carts">
+            <div class="row">
+                <div class="col-md-4">
+                    <div id="forecastMetrics" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="email-profile-new-year mb-3">Метрики прогноза</h5>
+                                <div class="metric-row">
+                                    <div class="metric-label">Средний дневной объем заказов:</div>
+                                    <div class="metric-value" id="averageOrders"></div>
+                                </div>
+                                <div class="metric-row">
+                                    <div class="metric-label">Средний дневной объем:</div>
+                                    <div class="metric-value">$<span id="averageAmount"></span></div>
+                                </div>
+                                <div class="metric-row">
+                                    <div class="metric-label">Тренд:</div>
+                                    <div class="metric-value" id="trend"></div>
+                                </div>
+                                <div class="metric-row">
+                                    <div class="metric-label">Доверие:</div>
+                                    <div class="metric-value"><span id="confidence"></span>%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <canvas id="forecastChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let selectedCategoryId = null;
+let chart = null;
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('category-search');
+    const suggestionsList = document.getElementById('suggestions');
+    const getForecastBtn = document.getElementById('getForecast');
+    let debounceTimer;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const searchTerm = this.value.trim();
+            if (searchTerm.length > 0) {
+                fetch(`/adminPanel/api/categories/search/?term=${encodeURIComponent(searchTerm)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        suggestionsList.innerHTML = '';
+                        if (data.length > 0) {
+                            suggestionsList.style.display = 'block';
+                            data.forEach(category => {
+                                const li = document.createElement('li');
+                                li.className = 'list-group-item list-group-item-action';
+                                li.textContent = category.name;
+                                li.addEventListener('click', () => {
+                                    searchInput.value = category.name;
+                                    selectedCategoryId = category.id;
+                                    suggestionsList.style.display = 'none';
+                                    getForecastBtn.disabled = false;
+                                });
+                                suggestionsList.appendChild(li);
+                            });
+                        } else {
+                            suggestionsList.style.display = 'none';
+                        }
+                    });
+            } else {
+                suggestionsList.style.display = 'none';
+                getForecastBtn.disabled = true;
+            }
+        }, 300);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+            suggestionsList.style.display = 'none';
+        }
+    });
+
+    getForecastBtn.addEventListener('click', function() {
+        if (selectedCategoryId) {
+            const formData = new FormData();
+            formData.append('category_id', selectedCategoryId);
+
+            fetch('{% url "forecasting:forecast_orders" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayForecast(data);
+                } else {
+                    showError(data.error || 'Не удалось получить прогноз');
+                }
+            })
+            .catch(error => {
+                showError('Ошибка: ' + error.message);
+            });
+        }
+    });
+});
+
+function displayForecast(data) {
+    const forecast = data.forecast;
+    
+    document.getElementById('averageOrders').textContent = forecast.average_orders.toFixed(2);
+    document.getElementById('averageAmount').textContent = forecast.average_amount.toFixed(2);
+    document.getElementById('trend').textContent = forecast.trend;
+    document.getElementById('confidence').textContent = forecast.confidence;
+
+    document.getElementById('forecastMetrics').style.display = 'block';
+    
+    if (chart) {
+        chart.destroy();
+    }
+    
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [
+                {
+                    label: 'Исторический объем',
+                    data: data.historical_revenue,
+                    borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                },
+                {
+                    label: 'Прогнозируемый объем',
+                    data: data.forecasted_revenue,
+                    borderColor: '#e74a3b',
+                    borderDash: [5, 5],
+                    borderWidth: 2,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger';
+    errorDiv.textContent = message;
+    document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.mb-4'));
+    setTimeout(() => errorDiv.remove(), 5000);
+}
+</script>
+
+<style>
+.card {
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    border-radius: 0.35rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+.card-title {
+    color: #4e73df;
+    font-weight: 700;
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 1rem;
+}
+
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 12px;
+    margin-top: 12px;
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+}
+
+.metric-label {
+    color: #333;
+    font-weight: 600;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+}
+
+.metric-value {
+    color: #000;
+    font-weight: 400;
+    font-size: 14px;
+    text-align: right;
+    font-family: 'Arial', sans-serif;
+}
+
+.list-group-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fc;
+    color: #4e73df;
+}
+
+.home-btn:disabled {
+    cursor: not-allowed;
+    transform: none;
+}
+
+#category-search {
+    font-family: 'Nunito', sans-serif;
+    border: 1px solid #d1d3e2;
+    border-radius: 0.35rem;
+    padding: 0.375rem 0.75rem;
+    transition: border-color 0.15s ease-in-out;
+    height: 38px;
+}
+
+#category-search:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+
+.alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    animation: slideIn 0.5s ease-out;
+    border: none;
+    background: #fff;
+    color: #e74a3b;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    padding: 1rem;
+    border-radius: 0.35rem;
+    font-family: 'Nunito', sans-serif;
+}
+
+.alert-danger {
+    border-left: 4px solid #e74a3b;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+#forecastChart {
+    min-height: 400px;
+}
+
+.cart-carts {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+}
+</style>
+{% endblock contentExtra %}

@@ -1,0 +1,595 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Управление заказами{% endblock %}
+
+{% block contentExtra %}
+<div class="notifications-container" id="notifications-container"></div>
+<div class="window-category d-flex justify-content-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Управление заказами</h2>
+        
+        <!-- Search Section -->
+        <div class="mb-4">
+            <div class="d-flex justify-content-center position-relative">
+                <input type="text" id="user-search" placeholder="Поиск пользователя..." class="form-control w-50" autocomplete="off">
+                <button id="saveChanges" class="home-btn ms-2">
+                    Сохранить изменения
+                </button>
+                <button id="generatePdf" class="home-btn ms-2" onclick="generateOrdersExcel()" style="display: none;">
+                    <i class="fas fa-file-excel"></i> Сформировать список
+                </button>
+                <ul id="suggestions" class="list-group position-absolute w-50" style="display: none; margin-top: 40px; z-index: 1000;"></ul>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="cart-carts">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Создан</th>
+                            <th>Общая стоимость</th>
+                            <th>Текущий статус</th>
+                            <th>Новый статус</th>
+                            <th>Оплачен</th>
+                            <th>Товары</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <!-- Orders will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для товаров -->
+<div class="modal fade" id="orderItemsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Товары в заказе</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Изображение</th>
+                                <th>Товар</th>
+                                <th>Количество</th>
+                                <th>Цена</th>
+                                <th>Итого</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderItemsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedUserId = null;
+const statusOptions = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showError(message) {
+    const container = document.getElementById('notifications-container');
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    
+    container.appendChild(notification);
+    
+    // Start fade out after 2.5 seconds
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+    }, 2500);
+    
+    // Remove notification after fade out (3 seconds total)
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function checkChanges() {
+    const selects = document.querySelectorAll('.status-select');
+    let hasChanges = false;
+    
+    selects.forEach(select => {
+        if (select.value !== select.getAttribute('data-original')) {
+            hasChanges = true;
+        }
+    });
+    
+    const saveBtn = document.getElementById('saveChanges');
+    if (hasChanges) {
+        saveBtn.style.opacity = '1';
+        saveBtn.style.pointerEvents = 'auto';
+    } else {
+        saveBtn.style.opacity = '0.5';
+        saveBtn.style.pointerEvents = 'none';
+    }
+}
+
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'Pending':
+            return 'bg-warning text-dark';
+        case 'Processing':
+            return 'bg-info text-white';
+        case 'Shipped':
+            return 'bg-primary text-white';
+        case 'Delivered':
+            return 'bg-success text-white';
+        case 'Cancelled':
+            return 'bg-danger text-white';
+        default:
+            return 'bg-secondary text-white';
+    }
+}
+
+function createStatusSelect(currentStatus, orderId) {
+    const select = document.createElement('select');
+    select.className = 'form-select status-select';
+    select.setAttribute('data-order-id', orderId);
+    select.setAttribute('data-original', currentStatus);
+    
+    // Сначала добавляем текущий статус как первый элемент
+    const currentOption = document.createElement('option');
+    currentOption.value = currentStatus;
+    currentOption.textContent = currentStatus;
+    currentOption.selected = true;
+    select.appendChild(currentOption);
+    
+    // Затем добавляем остальные статусы
+    statusOptions.forEach(status => {
+        if (status !== currentStatus) {  // Пропускаем текущий статус, так как он уже добавлен
+            const option = document.createElement('option');
+            option.value = status;
+            option.textContent = status;
+            select.appendChild(option);
+        }
+    });
+
+    select.addEventListener('change', function() {
+        checkChanges();
+    });
+
+    return select;
+}
+
+function loadUserOrders(userId) {
+    console.log('Loading orders for user:', userId);
+    fetch(`/adminPanel/api/orders/user/${userId}/`)
+        .then(response => {
+            console.log('Orders response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received orders:', data);
+            const tableBody = document.getElementById('orders-table-body');
+            const generatePdfBtn = document.getElementById('generatePdf');
+            tableBody.innerHTML = '';
+            
+            if (!Array.isArray(data) || data.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="7" class="text-center">Нет заказов</td>';
+                tableBody.appendChild(row);
+                generatePdfBtn.style.display = 'none';
+                return;
+            }
+            
+            // Проверяем, есть ли заказы в статусе Ожидает или В обработке
+            const hasUnprocessedOrders = data.some(order => 
+                order.status === 'Pending' || order.status === 'Processing'
+            );
+            
+            // Показываем кнопку только если есть необработанные заказы
+            generatePdfBtn.style.display = hasUnprocessedOrders ? 'block' : 'none';
+            
+            data.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${order.id}</td>
+                    <td>${new Date(order.created).toLocaleDateString()}</td>
+                    <td>$${order.total_cost}</td>
+                    <td><span class="badge ${getStatusBadgeClass(order.status)} fs-6 p-2">${order.status}</span></td>
+                    <td class="justify-content-center align-items-center">${createStatusSelect(order.status, order.id).outerHTML}</td>
+                    <td>${order.paid ? 'Да' : 'Нет'}</td>
+                    <td>
+                        <button class="btn btn-info btn-sm" onclick="showOrderItems(${order.id})">
+                            <i class="fas fa-box"></i> Просмотреть товары
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    console.log(`Status changed for order ${select.getAttribute('data-order-id')} from ${select.getAttribute('data-original')} to ${select.value}`);
+                    checkChanges();
+                });
+            });
+            
+            checkChanges();
+            console.log('Orders table updated');
+        })
+        .catch(error => {
+            console.error('Error loading orders:', error);
+            showError('Ошибка загрузки заказов: ' + error.message);
+            const tableBody = document.getElementById('orders-table-body');
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Ошибка загрузки заказов</td></tr>';
+            document.getElementById('generatePdf').style.display = 'none';
+        });
+}
+
+function showOrderItems(orderId) {
+    fetch(`/adminPanel/api/orders/${orderId}/items/`)
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('orderItemsTableBody');
+            tableBody.innerHTML = '';
+            
+            data.items.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <img src="${item.product_image || '/static/images/no-image.png'}" 
+                             class="product-image" 
+                             alt="${item.product_name}">
+                    </td>
+                    <td>${item.product_name}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${item.price}</td>
+                    <td>$${item.total}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            const modal = new bootstrap.Modal(document.getElementById('orderItemsModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки товаров в заказе:', error);
+            showError('Ошибка загрузки товаров в заказе: ' + error.message);
+        });
+}
+
+function generateOrdersExcel() {
+    if (!selectedUserId) {
+        showError('Пожалуйста, выберите пользователя');
+        return;
+    }
+    window.location.href = '/adminPanel/api/orders/generate-excel/';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('user-search');
+    const suggestionsList = document.getElementById('suggestions');
+    const saveChangesBtn = document.getElementById('saveChanges');
+    let debounceTimer;
+    
+    saveChangesBtn.style.opacity = '0.5';
+    saveChangesBtn.style.pointerEvents = 'none';
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const query = this.value.trim();
+        
+        if (query.length === 0) {
+            suggestionsList.style.display = 'none';
+            document.getElementById('orders-table-body').innerHTML = '';
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetch('/adminPanel/api/users/search/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                suggestionsList.innerHTML = '';
+                if (Array.isArray(data) && data.length > 0) {
+                    data.forEach(user => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item suggestion-item';
+                        li.textContent = `${user.username} (${user.email})`;
+                        li.addEventListener('click', () => {
+                            searchInput.value = user.username;
+                            suggestionsList.style.display = 'none';
+                            selectedUserId = user.id;
+                            loadUserOrders(user.id);
+                        });
+                        suggestionsList.appendChild(li);
+                    });
+                    suggestionsList.style.display = 'block';
+                } else {
+                    suggestionsList.style.display = 'none';
+                    document.getElementById('orders-table-body').innerHTML = '';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка поиска пользователей:', error);
+                showError('Ошибка поиска пользователей: ' + error.message);
+                suggestionsList.style.display = 'none';
+            });
+        }, 300);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!suggestionsList.contains(e.target) && e.target !== searchInput) {
+            suggestionsList.style.display = 'none';
+        }
+    });
+
+    saveChangesBtn.addEventListener('click', function() {
+        const updates = [];
+        document.querySelectorAll('.status-select').forEach(select => {
+            const currentStatus = select.value;
+            const originalStatus = select.getAttribute('data-original');
+            const orderId = parseInt(select.getAttribute('data-order-id'));
+            
+            if (currentStatus !== originalStatus) {
+                updates.push({
+                    orderId: orderId,
+                    status: currentStatus
+                });
+            }
+        });
+
+        if (updates.length === 0) return;
+
+        console.log('Sending updates:', updates);
+        const jsonData = JSON.stringify({ updates: updates });
+        console.log('JSON data:', jsonData);
+
+        fetch('/adminPanel/api/orders/update-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: jsonData
+        })
+        .then(response => {
+            console.log('Response status:', response.status); 
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Server response:', data); 
+            if (data.success) {
+                document.querySelectorAll('.status-select').forEach(select => {
+                    select.setAttribute('data-original', select.value);
+                });
+                checkChanges();
+                showError('Изменения сохранены успешно. Обновленные заказы: ' + 
+                    data.updates.map(u => `#${u.orderId} (${u.oldStatus} → ${u.newStatus})`).join(', '));
+                
+                if (selectedUserId) {
+                    loadUserOrders(selectedUserId);
+                }
+            } else {
+                throw new Error(data.error || 'Failed to save changes');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка обновления заказов:', error);
+            showError('Ошибка: ' + error.message);
+        });
+    });
+});
+
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    #notifications-container {
+        margin-top: 20px;
+        padding: 10px;
+    }
+    #notifications-container .alert {
+        margin-bottom: 10px;
+        border: none;
+        background: #fff;
+        color: #333;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        padding: 1rem;
+        border-radius: 0.35rem;
+        font-family: 'Arial', sans-serif;
+        border-left: 4px solid #4e73df;
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+<style>
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 12px;
+    margin-top: 12px;
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+}
+
+.metric-label {
+    color: #333;
+    font-weight: 600;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+}
+
+.metric-value {
+    color: #000;
+    font-weight: 400;
+    font-size: 14px;
+    text-align: right;
+    font-family: 'Arial', sans-serif;
+}
+
+.list-group-item {
+    cursor: pointer;
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fc;
+    color: #4e73df;
+}
+
+.home-btn:disabled {
+    cursor: not-allowed;
+    transform: none;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.table td {
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    vertical-align: middle;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.form-select {
+    font-size: 14px;
+    font-family: 'Arial', sans-serif;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.form-select:focus {
+    border-color: #333;
+    box-shadow: none;
+}
+
+.notifications-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.notification {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 5px;
+    text-align: center;
+    margin-bottom: 10px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.notification.success {
+    background-color: rgba(76, 175, 80, 0.9);
+}
+
+.notification.danger {
+    background-color: rgba(244, 67, 54, 0.9);
+}
+
+.notification.fade-out {
+    opacity: 0;
+}
+
+.cart-carts {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.modal-content {
+    border-radius: 10px;
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-radius: 10px 10px 0 0;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.product-image {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+</style>
+{% endblock contentExtra %}

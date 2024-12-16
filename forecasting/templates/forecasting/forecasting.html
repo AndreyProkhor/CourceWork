@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Прогноз продаж</title>
+</head>
+<body>
+    <h1>Прогноз продаж</h1>
+    <form id="forecast-form">
+        <label for="category">Выберите категорию:</label>
+        <select name="category_id" id="category">
+            {% for category in categories %}
+                <option value="{{ category.category }}">{{ category.category }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Прогнозировать</button>
+    </form>
+    <div id="forecast-result"></div>
+
+    <script>
+        document.getElementById('forecast-form').onsubmit = function(event) {
+            event.preventDefault();
+            const categoryId = document.getElementById('category').value;
+            fetch('{% url 'forecasting:forecast_orders' %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'category_id=' + categoryId
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('forecast-result').innerText = 'Forecasted Orders: ' + data.forecast;
+            });
+        };
+    </script>
+</body>
+</html>

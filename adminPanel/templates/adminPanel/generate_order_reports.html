@@ -1,0 +1,296 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Отчеты по заказам{% endblock %}
+
+{% block contentExtra %}
+<div class="window-category d-flex justify-content-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Отчеты по заказам</h2>
+        
+        <!-- User Search Section -->
+        <div class="mb-4 position-relative">
+            <div class="d-flex justify-content-center">
+                <div class="search-container" style="width: 50%; position: relative;">
+                    <input type="text" id="user-search" placeholder="Поиск пользователей..." class="form-control" autocomplete="off">
+                    <ul id="suggestions" class="list-group suggestions-list" style="display: none; position: absolute; width: 100%; top: 100%; left: 0; z-index: 1000; margin-top: 5px;"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Filters -->
+        <div class="cart-carts mb-4">
+            <div class="row justify-content-center">
+                <div class="col-md-3">
+                    <label class="form-label">Период</label>
+                    <select class="form-select" id="dateRange" onchange="handleFilterChange()">
+                        <option value="today">Сегодня</option>
+                        <option value="week">Последняя неделя</option>
+                        <option value="month">Последний месяц</option>
+                        <option value="year">Последний год</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Статус заказа</label>
+                    <select class="form-select" id="orderStatus" onchange="handleFilterChange()">
+                        <option value="all">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Processing">Processing</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Тип отчета</label>
+                    <select class="form-select" id="reportType" onchange="handleFilterChange()">
+                        <option value="summary">Сводный отчет</option>
+                        <option value="detailed">Детальный отчет</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <div class="d-flex justify-content-center gap-3">
+                    <button id="generateReport" class="home-btn" onclick="generateReport()" disabled>
+                        Сформировать отчет
+                    </button>
+                    <button id="sendReport" class="home-btn" onclick="sendReport()" disabled>
+                        Отправить отчет
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Preview -->
+        <div class="cart-carts">
+            <div id="reportPreview" class="p-3">
+                <div class="text-center text-muted">
+                    Выберите пользователя и настройте параметры для формирования отчета
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cart-carts {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 0 auto;
+    width: 90%;
+}
+
+.cart-carts::-webkit-scrollbar {
+    display: none;
+}
+
+.search-container {
+    position: relative;
+}
+
+.suggestions-list {
+    background: white;
+    border: 1px solid rgba(0,0,0,.125);
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,.1);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.list-group-item {
+    cursor: pointer;
+    padding: 10px 15px;
+    border-left: none;
+    border-right: none;
+    transition: background-color 0.2s;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+
+<script>
+let selectedUserId = null;
+
+// User search functionality
+const userSearch = document.getElementById('user-search');
+const suggestions = document.getElementById('suggestions');
+const generateReportBtn = document.getElementById('generateReport');
+const sendReportBtn = document.getElementById('sendReport');
+
+userSearch.addEventListener('input', async function() {
+    const query = this.value;
+    selectedUserId = null;
+    generateReportBtn.disabled = true;
+    sendReportBtn.disabled = true;
+    
+    //if (query.length < 2) {
+    //    suggestions.style.display = 'none';
+    //    return;
+    //}
+
+    try {
+        const response = await fetch(`/adminPanel/users/suggestions/?search=${query}`);
+        const users = await response.json();
+        
+        suggestions.innerHTML = '';
+        if (users.length > 0) {
+            suggestions.style.display = 'block';
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="fw-bold">${user.username}</div>
+                        </div>
+                    </div>
+                `;
+                li.addEventListener('click', () => {
+                    userSearch.value = user.username;
+                    selectedUserId = user.id;
+                    suggestions.style.display = 'none';
+                    generateReportBtn.disabled = false;
+                });
+                suggestions.appendChild(li);
+            });
+        } else {
+            suggestions.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error searching users:', error);
+        suggestions.style.display = 'none';
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (!userSearch.contains(e.target) && !suggestions.contains(e.target)) {
+        suggestions.style.display = 'none';
+    }
+});
+
+function handleFilterChange() {
+    if (selectedUserId) {
+        generateReport();
+    }
+}
+
+async function generateReport() {
+    if (!selectedUserId) {
+        return;
+    }
+
+    const dateRange = document.getElementById('dateRange').value;
+    const orderStatus = document.getElementById('orderStatus').value;
+    const reportType = document.getElementById('reportType').value;
+    const reportPreview = document.getElementById('reportPreview');
+    const generateReportBtn = document.getElementById('generateReport');
+    const sendReportBtn = document.getElementById('sendReport');
+
+    const requestData = {
+        user_id: selectedUserId,
+        date_range: dateRange,
+        order_status: orderStatus,
+        report_type: reportType
+    };
+    console.log('Sending request with data:', requestData);
+
+    generateReportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сформирование...';
+    generateReportBtn.disabled = true;
+    sendReportBtn.disabled = true;
+
+    try {
+        const response = await fetch('/mail/generate-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Server error:', errorData);
+            throw new Error(errorData.error || 'Failed to generate report');
+        }
+
+        const result = await response.json();
+        reportPreview.innerHTML = result.preview;
+        sendReportBtn.disabled = false;  // Enable send button after successful generation
+    } catch (error) {
+        console.error('Error generating report:', error);
+        reportPreview.innerHTML = '<div class="alert alert-danger">Failed to generate report. Please try again.</div>';
+    } finally {
+        generateReportBtn.innerHTML = 'Сформировать отчет';
+        generateReportBtn.disabled = !selectedUserId;
+    }
+}
+
+async function sendReport() {
+    const sendReportBtn = document.getElementById('sendReport');
+    sendReportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+    sendReportBtn.disabled = true;
+
+    try {
+        const response = await fetch('/mail/api/send-order-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                user_id: selectedUserId,
+                date_range: document.getElementById('dateRange').value,
+                order_status: document.getElementById('orderStatus').value,
+                report_type: document.getElementById('reportType').value
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to send report');
+        }
+
+        const result = await response.json();
+        const reportPreview = document.getElementById('reportPreview');
+        reportPreview.innerHTML += '<div class="alert alert-success mt-3">Отчет отправлен успешно!</div>';
+    } catch (error) {
+        console.error('Error sending report:', error);
+        const reportPreview = document.getElementById('reportPreview');
+        reportPreview.innerHTML += '<div class="alert alert-danger mt-3">Failed to send report. Please try again.</div>';
+    } finally {
+        sendReportBtn.innerHTML = 'Отправить отчет';
+        sendReportBtn.disabled = false;
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

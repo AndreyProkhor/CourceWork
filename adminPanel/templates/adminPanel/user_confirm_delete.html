@@ -1,0 +1,36 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Удалить пользователя{% endblock %}
+
+{% block contentExtra %}
+<div class="window-category d-flex justify-content-center align-items-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Удалить пользователя</h2>
+        <div class="cart-carts">
+            <div class="text-center p-4">
+                <h4>"Вы уверены, что хотите удалить пользователя {{ object.username }}"?</h4>
+                <p class="text-muted">Это действие необратимо.</p>
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-3">
+                        <button type="submit" class="home-btn">Удалить</button>
+                        <a href="{% url 'adminPanel:user_list' %}" class="home-btn">Отменить</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cart-carts {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    margin: 0 auto;
+}
+</style>
+{% endblock contentExtra %}

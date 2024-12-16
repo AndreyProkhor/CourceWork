@@ -1,0 +1,97 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Регистрация{% endblock title %}
+
+{% block content %}
+    {% if form.non_field_errors or form.first_name.errors or form.last_name.errors or form.username.errors or form.email.errors or form.password1.errors or form.password2.errors %}
+        <div class="position-fixed top-50 start-50 translate-middle" style="z-index: 1050;">
+            <div id="error-alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Ошибка</strong>
+                <ul>
+                    {% if form.non_field_errors %}
+                        <li>{{ form.non_field_errors }}</li>
+                    {% endif %}
+                    {% if form.first_name.errors %}
+                        <li>{{ form.first_name.errors }}</li>
+                    {% endif %}
+                    {% if form.last_name.errors %}
+                        <li>{{ form.last_name.errors }}</li>
+                    {% endif %}
+                    {% if form.username.errors %}
+                        <li>{{ form.username.errors }}</li>
+                    {% endif %}
+                    {% if form.email.errors %}
+                        <li>{{ form.email.errors }}</li>
+                    {% endif %}
+                    {% if form.password1.errors %}
+                        <li>{{ form.password1.errors }}</li>
+                    {% endif %}
+                    {% if form.password2.errors %}
+                        <li>{{ form.password2.errors }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+    <section class="login-reg d-flex">
+        <div class="login-title">
+            <h2 class="text-style">Регистрация</h2>
+            <form action="{% url "user:registration" %}" method="post">
+                {% csrf_token %}
+                <div class="row text-style">
+                    <div class="col-md-6 mb-3">
+                        <label for="id_first_name" class="form-label form-stylereg drop-margin-registration">Имя</label>
+                        <input type="text" class="form-control form-stylereg text-alignment" id="id_first_name"
+                        value="{% if form.first_name.value %}{{ form.first_name.value }}{% endif %}"
+                        name="first_name" placeholder="Your First Name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_last_name" class="form-label form-stylereg drop-margin-registration">Фамилия</label>
+                        <input type="text" class="form-control form-stylereg text-alignment" id="id_last_name"
+                        value="{% if form.last_name.value %}{{ form.last_name.value }}{% endif %}"
+                        name="last_name" placeholder="Your Last Name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_username" class="form-label form-stylereg drop-margin-registration">Логин</label>
+                        <input type="text" class="form-control form-stylereg text-alignment" id="id_username"
+                        value="{% if form.username.value %}{{ form.username.value }}{% endif %}"
+                        name="username" placeholder="Your Username" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_email" class="form-label form-stylereg drop-margin-registration">Почта</label>
+                        <input type="email" class="form-control form-stylereg text-alignment" id="id_email"
+                        value="{% if form.email.value %}{{ form.email.value }}{% endif %}"
+                        name="email" placeholder="Your Email" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_password1" class="form-label form-stylereg drop-margin-registration">Пароль</label>
+                        <input type="password" class="form-control form-stylereg text-alignment" id="id_password1"
+                        value="{% if form.password1.value %}{{ form.password1.value }}{% endif %}"
+                        name="password1" placeholder="Your Password" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_password2" class="form-label form-stylereg drop-margin-registration">Подтвердите пароль</label>
+                        <input type="password" class="form-control form-stylereg text-alignment" id="id_password2"
+                        value="{% if form.password2.value %}{{ form.password2.value }}{% endif %}"
+                        name="password2" placeholder="Your Password" required>
+                    </div>
+                </div>
+                <div class="parent-80-percent">
+                    <hr>
+                </div>
+                <button type="submit" class="login-btn form-style" style="width: fit-content;">Зарегистрироваться</button>
+            </form>
+        </div>
+    </section>
+    <script>
+        setTimeout(function() {
+            const alert = document.getElementById('error-alert');
+            if (alert) {
+                alert.classList.remove('show');
+                alert.classList.add('fade');
+                alert.style.display = 'none';
+            }
+        }, 3000);
+    </script>
+{% endblock content %}

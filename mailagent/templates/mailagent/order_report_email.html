@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .order-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .order-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .order-info th, .order-info td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .order-info th {
+            background-color: #e9ecef;
+            width: 30%;
+        }
+        .message-content {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: white;
+        }
+        .status-pending { background-color: #ffc107; }
+        .status-processing { background-color: #17a2b8; }
+        .status-shipped { background-color: #007bff; }
+        .status-delivered { background-color: #28a745; }
+        .status-cancelled { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="order-info">
+        <h2>Order #{{ order.id }}</h2>
+        <table>
+            <tr>
+                <th>Order Date:</th>
+                <td>{{ order.created|date:"Y-m-d H:i" }}</td>
+            </tr>
+            <tr>
+                <th>Customer:</th>
+                <td>{{ order.first_name }} {{ order.last_name }}</td>
+            </tr>
+            <tr>
+                <th>Email:</th>
+                <td>{{ order.email }}</td>
+            </tr>
+            <tr>
+                <th>Address:</th>
+                <td>{{ order.address }}, {{ order.city }}, {{ order.postal_code }}</td>
+            </tr>
+            <tr>
+                <th>Status:</th>
+                <td>
+                    <span class="status-badge status-{{ order.status|lower }}">
+                        {{ order.status }}
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <th>Total Cost:</th>
+                <td>${{ order.total_cost }}</td>
+            </tr>
+            <tr>
+                <th>Paid:</th>
+                <td>{% if order.paid %}Yes{% else %}No{% endif %}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="message-content">
+        {{ message|safe }}
+    </div>
+
+    <div class="footer">
+        <p>This is an automated message from VeloRecommend. Please do not reply to this email.</p>
+        <p>If you have any questions, please contact our support team.</p>
+    </div>
+</body>
+</html>

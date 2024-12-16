@@ -1,0 +1,180 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Пользователи{% endblock %}
+
+{% block contentExtra %}
+<div class="window-category d-flex justify-content-center align-items-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Пользователи</h2>
+        <div class="mb-4">
+            <ul id="suggestions" class="list-group position-absolute" style="display: none; margin-top: -100px;"></ul>
+            <form method="GET" action="{% url 'adminPanel:user_list' %}" class="d-flex justify-content-center">
+                <input type="text" name="search" id="user-search" placeholder="Search users..." class="form-control w-50" autocomplete="off">
+                <button type="submit" class="home-btn ms-2">Поиск</button>
+            </form>
+        </div>
+        <div class="action-buttons mb-4 d-flex justify-content-center gap-3">
+            <a href="{% url 'adminPanel:user_create' %}" class="home-btn">Добавить</a>
+            <a href="{% url 'adminPanel:export_users_excel' %}" class="home-btn">Экспорт Excel</a>
+        </div>
+        {% if messages %}
+        <div class="messages-container mb-4">
+            {% for message in messages %}
+            <div class="alert-message {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="cart-carts" style="margin-top: 20px;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%">ID</th>
+                        <th style="width: 15%">Логин</th>
+                        <th style="width: 15%">Почта</th>
+                        <th style="width: 15%">Дата регистрация</th>
+                        <th style="width: 50%">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td style="width: 5%">{{ user.id }}</td>
+                        <td style="width: 15%">{{ user.username }}</td>
+                        <td style="width: 15%">{{ user.email }}</td>
+                        <td style="width: 15%">{{ user.date_joined|date:"d.m.Y" }}</td>
+                        <td style="width: 50%">
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'adminPanel:user_update' user.id %}" class="remove-btn">Изменить</a>
+                                <a href="{% url 'adminPanel:user_delete' user.id %}" class="remove-btn">Удалить</a>
+                                <a href="{% url 'adminPanel:generate_user_pdf' user.id %}" class="remove-btn" style="width: fit-content; padding: 5px;">Отчет</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('user-search').addEventListener('input', function() {
+        const query = this.value;
+        if (query.length > 0) {
+            fetch(`/adminPanel/users/suggestions/?search=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    const suggestions = document.getElementById('suggestions');
+                    suggestions.innerHTML = '';
+                    if (data.length > 0) {
+                        suggestions.style.display = 'block';
+                        data.forEach(user => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.style.cursor = 'pointer';
+                            li.textContent = user.username;
+                            li.addEventListener('click', function() {
+                                document.getElementById('user-search').value = this.textContent;
+                                suggestions.style.display = 'none';
+                            });
+                            suggestions.appendChild(li);
+                        });
+                    } else {
+                        suggestions.style.display = 'none';
+                    }
+                });
+        } else {
+            document.getElementById('suggestions').style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#suggestions') && !e.target.closest('#user-search')) {
+            document.getElementById('suggestions').style.display = 'none';
+        }
+    });
+</script>
+
+<style>
+.cart-carts {
+    padding-top: 0px;
+    padding-bottom: 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    max-height: 500px;
+    overflow-y: auto;
+    margin: 0 auto;
+    width: 90%;
+}
+
+.cart-carts::-webkit-scrollbar {
+    display: none;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+    z-index: 1;
+}
+
+.messages-container {
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.alert-message {
+    padding: 10px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: inline-block;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messages = document.querySelectorAll('.alert-message');
+    messages.forEach(message => {
+        setTimeout(() => {
+            message.style.animation = 'fadeOut 0.3s ease-out forwards';
+            setTimeout(() => {
+                message.parentElement.remove();
+            }, 300);
+        }, 3000);
+    });
+});
+</script>
+{% endblock contentExtra %}

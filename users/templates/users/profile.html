@@ -1,0 +1,399 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Profile{% endblock title %}
+
+{% block content %}
+    {% if form.non_field_errors or form.first_name.errors or form.last_name.errors or form.username.errors or form.email.errors %}
+        <div class="position-fixed top-50 start-50 translate-middle" style="z-index: 1050;">
+            <div id="error-alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Ошибка</strong>
+                <ul>
+                    {% if form.non_field_errors %}
+                        <li>{{ form.non_field_errors }}</li>
+                    {% endif %}
+                    {% if form.first_name.errors %}
+                        <li>{{ form.first_name.errors }}</li>
+                    {% endif %}
+                    {% if form.last_name.errors %}
+                        <li>{{ form.last_name.errors }}</li>
+                    {% endif %}
+                    {% if form.username.errors %}
+                        <li>{{ form.username.errors }}</li>
+                    {% endif %}
+                    {% if form.email.errors %}
+                        <li>{{ form.email.errors }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+    <div class="d-flex">
+
+        <div class="d-flex">
+            <div class="windowp d-flex bg-white p-4 mb-4 mx-2 rounded">
+                <form action="{% url 'users:profile' %}" method="post" enctype="multipart/form-data">
+                    <h2 class="mb-2">Профиль</h2>
+                    {% csrf_token %}                
+                    <div class="d-flex">
+                        <div class="1box">
+                            <div class="col-md-12 mb-3">
+                                {% if user.image %}
+                                    <img src="{{ user.image.url }}" alt="Avatar" class="img-fluid" style="max-width: 150px; max-height: 150px;">
+                                {% else %}
+                                    <img src="{% static 'img/noimage.jpg' %}" alt="Avatar" class="img-fluid" style="max-width: 150px; max-height: 150px;">
+                                {% endif %}
+                                <input type="file" class="form-control form-styleprofile mt-2" id="id_image" name="image" accept="image/*">
+                            </div>
+                            <div class="col-md-12 mb-3">
+                                <label for="id_first_name" class="form-label order-text-hidden">Имя</label>
+                                <input type="text" class="form-control form-styleprofile" id="id_first_name" name="first_name" placeholder="Your First Name" value="{{ form.first_name.value }}" required>
+                            </div>
+                            <div class="col-md-12 mb-3">
+                                <label for="id_last_name" class="form-label order-text-hidden">Фамилия</label>
+                                <input type="text" class="form-control form-styleprofile" id="id_last_name" name="last_name" placeholder="Your Last Name" value="{{ form.last_name.value }}" required>
+                            </div>
+                        </div>
+                        <div class="box2">
+                            <div class="col-md-12 mb-3">
+                                <label for="id_username" class="form-label order-text-hidden">Логин</label>
+                                <input type="text" class="form-control form-styleprofile email-profile-new-year" id="id_username" name="username" placeholder="Your Username" value="{{ form.username.value }}" style="background-color: #ffffff7d" required>
+                            </div>
+                            <div class="col-md-12 mb-3">
+                                <label for="id_email" class="form-label order-text-hidden">Почта</label>
+                                <input type="email" class="form-control form-styleprofile email-profile-new-year" id="id_email" name="email" placeholder="Your Email" value="{{ form.email.value }}" style="background-color: #ffffff7d" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="btns d-flex gap-4 mt-4">
+                        <button type="submit" class="profile-btn">Сохранить</button>
+                        <a class="profile-btn" href="{% url 'user:logout' %}">Выйти</a>
+                    </div>
+                </form>
+                <div class="orders">
+                    <h2 class="mb-2">Ваши заказы</h2>   
+                    {% if orders %}
+                        <div class="orderss">
+                            {% for order in orders %}
+                                <div class="order-cart">
+                                    <h5 class="order-title">Заказ № {{ order.id }}</h5>
+                                    <h5 class="order-title">Статус: {{ order.status }}</h5> 
+                                    <h5 class="order-title">Опначен: {% if order.paid %} Да {% else %} Нет {% endif%}</h5>
+                                    <h5 class="order-title">Обновлен: {{ order.updated }}</h5> 
+                                    <h5 class="order-title">Создан: {{ order.created }}</h5> 
+                                    <br>
+                                    <h5 class="order-title">Позиции:</h5>
+                                    <br>
+                                    <p class="order-desc">
+                                        {% for item in order.items.all %}
+                                            <div class="orders-carts">
+                                                <span class="dadad">Название: </span><a class="" href="{% url 'main:product_detail' item.product.slug %}">{{ item.product.name }}</a>
+                                                <br>
+                                                <span class="dadad">Количество:</span> {{ item.quantity }},
+                                                <span class="dadad">Цена: $ {{ item.price }}</span>
+                                                <br>
+                                            </div>
+                                        {% endfor %}
+                                    </p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <h4 class="notorders">Вы еще ничего не заказали</h4>
+                    {% endif %}         
+                </div>
+            </div>
+        </div>
+        <div class="user-analytics">
+            <div class="windowz bg-white p-4 mb-4 mx-2 rounded">
+                <h2>Расходы</h2>
+                <div class="jsc jcs ">
+                    <input type="date" id="filterDate" class="form-control mb-3 date-input-profile"/>
+                    <div class="d-flex">
+                        <button id="filterButton" class="profile-btn-fix mb-2">Фильтр</button>
+                        <button id="barChartButton" class="profile-btn-fix mb-2">Bar график</button>
+                        <button id="pieChartButton" class="profile-btn-fix mb-2">Pie график</button>
+                        <button id="combinedChartButton" class="profile-btn-fix mb-2">Все дни</button>
+                    </div>
+                </div>                
+                <div id="expenseCharts" class="expenseCharts"></div>
+                <form action="" method="get">
+                    <div class="jsc jcs user-report-buttons d-flex">
+                        <button type="button" id="generatePdfButton" class="profile-btn-fix mb-2">Отчет PDF</button>
+                        <button type="button" id="generateExcelButton" class="profile-btn-fix mb-2">Отчет Excel</button>
+                    </div>
+                </form>
+            </div>   
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const userId = {{ request.user.id }};
+
+        document.getElementById('generatePdfButton').onclick = function() {
+            window.location.href = `{% url 'reports:generate_pdf' 0 %}`.replace('0', userId);
+        };
+
+        document.getElementById('generateExcelButton').onclick = function() {
+            window.location.href = `{% url 'reports:generate_excel' 0 %}`.replace('0', userId);
+        };
+        setTimeout(function() {
+            const alert = document.getElementById('error-alert');
+            if (alert) {
+                alert.classList.remove('show');
+                alert.classList.add('fade');
+                alert.style.display = 'none';
+            }
+        }, 3000);
+        let currentChartType = 'bar';
+    
+        const colors = [
+            'rgba(75, 192, 192, 0.2)',
+            'rgba(255, 99, 132, 0.2)',
+            'rgba(54, 162, 235, 0.2)',
+            'rgba(255, 206, 86, 0.2)',
+            'rgba(75, 192, 192, 0.2)',
+            'rgba(153, 102, 255, 0.2)',
+            'rgba(255, 159, 64, 0.2)'
+        ];
+
+        async function fetchExpenses(filterDate = null, combine = false) {
+            const response = await fetch("{% url 'users:get_expense_data' %}");
+            const orders = await response.json();
+            document.getElementById('expenseCharts').innerHTML = '';
+
+            if (combine) {
+                const combinedData = {};
+
+                orders.forEach(order => {
+                    const date = order.created.split('T')[0];
+                    if (filterDate && date !== filterDate) {
+                        return;
+                    }
+                    order.items.forEach(item => {
+                        if (!combinedData[date]) {
+                            combinedData[date] = {};
+                        }
+                        if (!combinedData[date][item.product_name]) {
+                            combinedData[date][item.product_name] = 0;
+                        }
+                        combinedData[date][item.product_name] += item.cost;
+                    });
+                });
+
+                const combinedLabels = Object.keys(combinedData).sort();
+                const combinedDatasets = {};
+
+                combinedLabels.forEach(date => {
+                    Object.keys(combinedData[date]).forEach(product => {
+                        if (!combinedDatasets[product]) {
+                            combinedDatasets[product] = {
+                                label: product,
+                                data: new Array(combinedLabels.length).fill(0)
+                            };
+                        }
+                        const index = combinedLabels.indexOf(date);
+                        combinedDatasets[product].data[index] += combinedData[date][product];
+                    });
+                });
+
+                const datasets = Object.values(combinedDatasets);
+
+                const canvas = document.createElement('canvas');
+                canvas.id = 'combinedChart';
+                document.getElementById('expenseCharts').appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+
+                new Chart(ctx, {
+                    type: currentChartType,
+                    data: {
+                        labels: combinedLabels,
+                        datasets: datasets.map((dataset, index) => ({
+                            ...dataset,
+                            backgroundColor: colors[index % colors.length],
+                            borderColor: colors[index % colors.length].replace('0.2', '1'),
+                            borderWidth: 1
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            }
+                        }
+                    }
+                });
+
+            } else {
+                orders.forEach(order => {
+                    if (filterDate && order.created.split('T')[0] !== filterDate) {
+                        return;
+                    }
+
+                    const labels = order.items.map(item => item.product_name);
+                    const values = order.items.map(item => item.cost);
+                    const chartContainer = document.createElement('div');
+                    chartContainer.classList.add('chart-container');
+
+                    const brel = document.createElement('hr');
+                    const dateLabel = document.createElement('h4');
+                    dateLabel.textContent = `Создан: ${order.created}`;
+                    dateLabel.classList.add('date-label');
+                    chartContainer.appendChild(dateLabel);
+
+                    const canvas = document.createElement('canvas');
+                    canvas.id = `expenseChart${order.order_id}`;
+                    chartContainer.appendChild(canvas);
+                    document.getElementById('expenseCharts').appendChild(chartContainer);
+                    chartContainer.appendChild(brel);
+
+                    const ctx = canvas.getContext('2d');
+                    const datasetColors = values.map((_, index) => {
+                        return colors[index % colors.length];
+                    });
+                    new Chart(ctx, {
+                        type: currentChartType,
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: `Затраты по заказу #${order.order_id}`,
+                                data: values,
+                                backgroundColor: datasetColors,
+                                borderColor: datasetColors.map(color => color.replace('0.2', '1')),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+        }
+
+        document.getElementById('filterButton').addEventListener('click', () => {
+            const filterDate = document.getElementById('filterDate').value;
+            fetchExpenses(filterDate);
+        });
+
+        document.getElementById('barChartButton').addEventListener('click', () => {
+            currentChartType = 'bar';
+            fetchExpenses(); 
+        });
+
+        document.getElementById('pieChartButton').addEventListener('click', () => {
+            currentChartType = 'pie';
+            fetchExpenses(); 
+        });
+
+        document.getElementById('combinedChartButton').addEventListener('click', () => {
+            fetchExpenses(null, true); 
+        });
+
+        fetchExpenses();
+    </script>
+{% endblock content %}
+
+
+{% comment %} {% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Profile{% endblock title %}
+
+{% block content %}
+    <div class="d-flex">
+        <div class="windowp d-flex bg-white p-4 mb-4 mx-2 rounded">
+            <form action="{% url "users:profile" %}" method="post" enctype="multipart/form-data">
+                <h2 class="mb-2">Profile</h2>
+                {% csrf_token %}
+                <div class="d-flex">
+                    <div class="1box">
+                        <div class="col-md-12 mb-3">
+                            {% if user.image %}
+                                <img src="{{ user.image.url }}" alt="Avatar" class="img-fluid"
+                                style="max-width: 150px; max-height: 150px;">
+                            {% else %}
+                                <img src="{% static 'img/noimage.jpg' %}" alt="Avatar" class="img-fluid"
+                                style="max-width: 150px; max-height: 150px;">
+                            {% endif %}
+                            <input type="file" class="form-control form-styleprofile mt-2" id="id_image"
+                            name="image" accept="image/*">
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label for="id_first_name" class="form-label order-text-hidden">First Name</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_first_name"
+                            name="first_name" placeholder="Your First Name" value="{{ form.first_name.value }}"
+                            required>
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label for="id_last_name" class="form-label order-text-hidden">Last Name</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_last_name"
+                            name="last_name" placeholder="Your Last Name" value="{{ form.last_name.value }}"
+                            required>
+                        </div>
+                    </div>
+                    <div class="box2">
+                        <div class="col-md-12 mb-3">
+                            <label for="id_username" class="form-label order-text-hidden">Username</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_username"
+                            name="username" placeholder="Your Username" value="{{ form.username.value }}"
+                            style = "background-color: #ffffff7d" required>
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label for="id_email" class="form-label order-text-hidden">Email</label>
+                            <input type="email" class="form-control form-styleprofile" id="id_email"
+                            name="email" placeholder="Your Email" value="{{ form.email.value }}"
+                            style = "background-color: #ffffff7d" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="btns d-flex gap-4 mt-4">
+                    <button type="submit" class="profile-btn">Save</button>
+                    <a class="profile-btn" href="{% url "user:logout" %}">Logout</a>
+                </div>
+                
+            </form>
+            <div class="orders">
+                <h2 class="mb-2">Your Orders</h2>   
+                {% if orders %}
+                    <div class="orderss">
+                        {% for order in orders %}
+                            <div class="order-cart">
+                                <h5 class="order-title">Order № {{ order.id }}</h5>
+                                <p class="order-desc">
+                                    {% for item in order.items.all %}
+                                        <div class="orders-carts">
+                                            <span class="dadad">Name: </span><a class="" href="{% url 'main:product_detail' item.product.slug %}">{{ item.product.name }}</a>
+                                            <br>
+                                            <span class="dadad">Quantity:</span> {{ item.quantity }},
+                                            <span class="dadad">Price: $ {{ item.price }}</span> <br>
+                                            <span class="dadad">Date:</span>  {{ order.created }}
+                                            <br>
+                                        </div>
+                                    {% endfor %}
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <h4 class="notorders">You haven't ordered anything yet.</h4>
+                {% endif %}         
+            </div>
+        </div>
+{% endblock content %}
+ {% endcomment %}

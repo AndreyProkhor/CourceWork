@@ -1,0 +1,97 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block title %}Магазин{% endblock title %}
+{% block search %}
+<form method="get" class="search-form border-dynamic">
+    <input type="text" id="search-input" name="search" value="{{ search_query }}" 
+    class="input-search" placeholder="Search for products...">
+    <button type="submit" class="custom-button">SEARCH</button>
+    <div id="suggestions" class="suggestions"></div>
+</form>
+{% endblock search %}
+{% block content %}
+ <div class="llist d-flex">
+    <div class="sidebar">
+        <h3>Категории</h3>
+        <div class="polosa-list">
+            <ul>
+                <li {% if not category %}class = "selected"{% endif %}>
+                    <a href="{% url "main:product_list" %}">ВСЕ</a>
+                </li>
+                {% for c in categories %}
+                    <li {% if category.slug == c.slug%}class="selected"{% endif %}>
+                        <a href="{{c.get_absolute_url}}">{{c.name}}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="main">
+        <div class="main-title">
+            {% if category %}{{category.name}}{% else %}Товары{% endif %}
+        </div>
+        <div class="product-list">
+            <div class="items">
+                {% for product in products %}
+                    <div class="item">
+                        <a href="{{product.get_absolute_url}}" class = "home-card d-flex flex-column align-items-center text-center">
+                            <img src=" {% if product.image %}{{product.image.url}}{% else %}{%static 'img/noimage.jpg'%}{% endif %}" alt="" class="card-img">
+                            <h5 class="title-card">{{product.name}}</h5>
+                            {% if product.discount %}
+                                <div class="card-discount d-flex gap-2">
+                                    <p class="line">{{product.price}}</p>
+                                    <p>{{product.sell_price}}</p>
+                                </div>          
+                            {% else %}
+                                <p class="price">{{product.price}}</p>
+                            {% endif %}
+                        </a>
+                    </div>
+                {% empty %}
+                    <p>Нет товаров.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <ul class="pagination">
+            <li class="{% if not products.has_previous %}disabled{% endif %}">
+                <a href="{% if products.has_previous %}?page={{ products.previous_page_number }}{% endif %}">Предыдущая</a>
+            </li>
+            {% for page in products.paginator.page_range %}
+                {% if page >= products.number|add:-2 and page <= products.number|add:2 %}
+                    <li>
+                        <a href="?page={{ page }}" class="{% if products.number == page %}disabled{% endif %}">{{ page }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            <li class="{% if not products.has_next %}disabled{% endif %}">
+                <a href="{% if products.has_next %}?page={{ products.next_page_number }}{% endif %}">Следующая</a>
+            </li>
+        </ul>
+    </div>
+ </div>
+ <script>
+    document.getElementById('search-input').addEventListener('input', function() {
+        const query = this.value;
+        if (query.length > 0) {
+            fetch(`/shop/search/?query=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    const suggestions = document.getElementById('suggestions');
+                    suggestions.innerHTML = '';
+                    data.forEach(product => {
+                        const div = document.createElement('div');
+                        div.textContent = product.name;
+                        div.onclick = function() {
+                            document.getElementById('search-input').value = product.name;
+                            suggestions.innerHTML = '';
+                        };
+                        suggestions.appendChild(div);
+                    });
+                });
+        } else {
+            document.getElementById('suggestions').innerHTML = '';
+        }
+    });
+</script>
+{% endblock content %}

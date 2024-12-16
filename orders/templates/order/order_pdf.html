@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Report</title>
+    {% comment %} <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}"> {% endcomment %}
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    {% comment %} <style>
+        body {
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .card-container {
+            display: flex;
+            flex-wrap: wrap; 
+            justify-content: space-around; 
+        }
+        .card {
+            width: 250px;
+            margin: 10px;
+        }
+        .total {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 20px;
+        }
+    </style> {% endcomment %}
+</head>
+<body>
+    <h1>Order Report</h1>
+    <div class="card-container">
+        {% for item in order_items %}
+        <div class="card">
+            <img src="{% if item.product.image %}{{ item.product.image.url }}{% else %}{% static 'img/noimage.jpg' %} {% endif %}" class="card-img-top" alt="{{ item.product.name }}">
+            <div class="card-body">
+                <h5 class="card-title">{{ item.product.name }}</h5>
+                <p class="card-text">Quantity: {{ item.quantity }}</p>
+                <p class="card-text">Price without discount: $ {{ item.price }}</p>
+                <p class="card-text">Price with discount: $ {{ item.product.sell_price }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="total">Total sum: $ {{order_items.get_total_price}}</div>
+    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Товары{% endblock %}
+
+{% block contentExtra %}
+<div class="window-category d-flex justify-content-center align-items-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Товары</h2>
+        <div class="mb-4">
+            <ul id="suggestions" class="list-group position-absolute" style="display: none; margin-top: -100px;"></ul>
+            <form method="GET" action="{% url 'adminPanel:product_list' %}" class="d-flex justify-content-center">
+                <input type="text" name="search" id="product-search" placeholder="Поиск товаров..." class="form-control w-50" autocomplete="off">
+                <button type="submit" class="home-btn ms-2">Поиск</button>
+            </form>
+        </div>
+        <div class="action-buttons mb-4 d-flex justify-content-center gap-3">
+            <a href="{% url 'adminPanel:product_create' %}" class="home-btn">Добавить товар</a>
+            <a href="{% url 'adminPanel:export_products_excel' %}" class="home-btn">Экспорт в Excel</a>
+        </div>
+        <div class="cart-carts" style="margin-top: 20px;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Название</th>
+                        <th>Категория</th>
+                        <th>Цена</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.id }}</td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.category.name }}</td>
+                        <td>${{ product.price }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'adminPanel:product_update' product.id %}" class="remove-btn">Изменить</a>
+                                <a href="{% url 'adminPanel:product_delete' product.id %}" class="remove-btn">Удалить</a>
+                                <a href="{% url 'reports:generate_product_pdf' product.id %}" class="remove-btn" style="width: 150px; padding: 5px;">PDF Отчет</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('product-search').addEventListener('input', function() {
+        const query = this.value;
+        if (query.length > 0) {
+            fetch(`/adminPanel/products/suggestions/?search=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    const suggestions = document.getElementById('suggestions');
+                    suggestions.innerHTML = '';
+                    if (data.length > 0) {
+                        suggestions.style.display = 'block';
+                        data.forEach(product => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.style.cursor = 'pointer';
+                            li.textContent = product.name;
+                            li.addEventListener('click', function() {
+                                document.getElementById('product-search').value = this.textContent;
+                                suggestions.style.display = 'none';
+                            });
+                            suggestions.appendChild(li);
+                        });
+                    } else {
+                        suggestions.style.display = 'none';
+                    }
+                });
+        } else {
+            document.getElementById('suggestions').style.display = 'none';
+        }
+    });
+
+    // Close suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#suggestions') && !e.target.closest('#product-search')) {
+            document.getElementById('suggestions').style.display = 'none';
+        }
+    });
+</script>
+
+<style>
+.cart-carts {
+    padding-top: 0px;
+    padding-bottom: 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    max-height: 500px;
+    overflow-y: auto;
+    margin: 0 auto;
+    width: 90%;
+}
+
+.cart-carts::-webkit-scrollbar {
+    display: none;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+    z-index: 1;
+}
+</style>
+{% endblock contentExtra %}

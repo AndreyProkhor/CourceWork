@@ -1,0 +1,68 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Оформление заказа{% endblock title %}
+
+{% block content %}
+    <div class="forcreate">
+        <div class="profile bg-white p-4 mb-1 mx-2 order-background"> 
+            {% comment %} style="background-image: url('{% static 'img/create_order_form.jpg' %}');" {% endcomment %}
+            <h2 class="mb-2 order-text-hidden">Оформление заказа</h2>
+            <form action="" method="post" class="order-form">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_first_name" class="form-label order-text-hidden">Имя</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_first_name"
+                                   name="first_name" placeholder="Your First Name" value="{{ form.first_name.value|default:'' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_last_name" class="form-label">Фамилия</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_last_name"
+                                   name="last_name" placeholder="Your Last Name" value="{{ form.last_name.value|default:'' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">Почта</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_email"
+                                   name="email" placeholder="Your Email" value="{{ form.email.value|default:'' }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_address" class="form-label order-text-hidden">Адресс</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_address"
+                                   name="address" placeholder="Your Address" value="{{ form.address.value|default:'' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_postal_code" class="form-label">Почтовый индекс</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_postal_code"
+                                   name="postal_code" placeholder="Your Postal Code" value="{{ form.postal_code.value|default:'' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_city" class="form-label">Город</label>
+                            <input type="text" class="form-control form-styleprofile" id="id_city"
+                                   name="city" placeholder="Your City" value="{{ form.city.value|default:'' }}" required>
+                        </div>
+                    </div>
+                </div>
+                <p class = "mt-3" style="align-self: center;"><input type="submit" value="Оформить"></p>
+            </form>
+        </div>
+        <div class="checkout">
+            <h1 class="checkout-text">Данные по заказу</h1>
+            <div class="order-info">
+                {% for item in cart %}
+                    <li>
+                        {{ item.quantity }}x {{ item.product.name }}
+                        <p>$ {{ item.total_price }}</p>
+                    </li>
+                {% endfor %}
+            </div>
+            <div class="button-container">
+                <p class="create-order-total-text">Итого: $ {{ cart.get_total_price }}</p>
+                <a href="{% url 'orders:order_pdf' %}" class="gen-pdf-btn-order mt-4 mx-3">Отчет PDF</a>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

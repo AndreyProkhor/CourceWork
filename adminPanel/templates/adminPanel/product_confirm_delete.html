@@ -1,0 +1,20 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Удаление товара{% endblock %}
+
+{% block contentExtra %}
+<div class="window-category d-flex justify-content-center align-items-center">
+    <div class="container">
+        <h2 class="text-center mb-4 email-profile-new-year">Удаление товара</h2>
+        <p class="text-center email-profile-new-year">Вы уверены, что хотите удалить товар "{{ product.name }}"?</p>
+        <form method="post" class="d-flex justify-content-center">
+            {% csrf_token %}
+            <div class="d-flex gap-3">
+                <button type="submit" class="home-btn">Удалить</button>
+                <a href="{% url 'adminPanel:product_list' %}" class="home-btn">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock contentExtra %}

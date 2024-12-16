@@ -1,0 +1,554 @@
+{% extends 'adminPanel/base.html' %}
+{% load static %}
+
+{% block title %}Управление кластерами{% endblock %}
+
+{% block contentExtra %}
+<div class="notifications-container" id="notifications-container"></div>
+<div class="window-category d-flex justify-content-center">
+    <div class="container">
+        {% csrf_token %}
+        <h2 class="text-center mb-4 email-profile-new-year">Управление кластерами</h2>
+        
+        <div class="row">
+            <!-- Левая панель - Управление кластерами -->
+            <div class="col-md-6">
+                <div class="cart-carts mb-4">
+                    <h3 class="text-center mb-3">Кластеры пользователей</h3>
+                    
+                    <!-- Поиск пользователей -->
+                    <div class="mb-4">
+                        <div class="position-relative">
+                            <form class="d-flex gap-2">
+                                <input type="text" id="user-search" class="form-control" placeholder="Поиск пользователей...">
+                                <button type="button" id="search-btn" class="home-btn">Поиск</button>
+                            </form>
+                            <ul id="suggestions" class="list-group position-absolute w-100" style="display: none; z-index: 1000;"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Таблица кластеров -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 10%">ID</th>
+                                    <th style="width: 25%">Пользователь</th>
+                                    <th style="width: 35%">Кластер</th>
+                                    <th style="width: 30%">Метод</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clusters-table-body">
+                                {% for cluster in user_clusters %}
+                                <tr>
+                                    <td>{{ cluster.user.id }}</td>
+                                    <td>{{ cluster.user.username }}</td>
+                                    <td>
+                                        <select class="form-select cluster-select" data-user-id="{{ cluster.user.id }}" data-original-value="{{ cluster.cluster }}">
+                                            {% for i in cluster_numbers %}
+                                            <option value="{{ i }}" {% if i == cluster.cluster %}selected{% endif %}>
+                                                Кластер {{ i }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>{{ cluster.clustering_method }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Кнопки управления -->
+                <div class="d-flex justify-content-center gap-3 mb-4">
+                    <button id="save-clusters-btn" class="remove-btn" style="width: fit-content; padding: 5px;">Сохранить</button>
+                    <button id="kmeans-btn" class="remove-btn" style="width: fit-content; padding: 5px;">K-Means</button>
+                    <button id="cosine-btn" class="remove-btn" style="width: fit-content; padding: 5px;">Кос. сх-во</button>
+                </div>
+            </div>
+
+            <!-- Правая панель - Модели -->
+            <div class="col-md-6">
+                <div class="card model-info-section">
+                    <h3 class="text-center mb-3">Информация о модели</h3>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Параметры модели</h6>
+                                <div id="model-params" class="params-container mb-4">
+                                    <!-- Параметры модели будут добавлены через JavaScript -->
+                                </div>
+                                <button id="train-btn" class="remove-btn" style="width: fit-content; padding: 5px;">Переобучить модель</button>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Метрики производительности</h6>
+                                <div id="performance-chart" style="width: 100%; height: 300px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cart-carts {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.table-container {
+    height: 300px;
+    overflow-y: auto;
+    margin-top: 20px;
+}
+
+.table th {
+    max-height: 200px;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+    z-index: 1;
+}
+
+.json-viewer {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+}
+
+.list-group {
+    position: absolute;
+    width: 100%;
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.list-group-item {
+    cursor: pointer;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.model-info-section {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.params-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.params-container div {
+    margin-bottom: 10px;
+    padding: 8px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.params-container div:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.params-container strong {
+    color: #495057;
+    font-size: 0.95rem;
+}
+
+#performance-chart {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+    height: 300px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #0d6efd;
+    color: white;
+    padding: 15px 20px;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+}
+
+.card-header h5 {
+    margin: 0;
+    font-weight: 500;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+#retrain-model {
+    width: 100%;
+    margin-top: 15px;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+}
+
+.notifications-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.notification {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 5px;
+    text-align: center;
+    margin-bottom: 10px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.notification.success {
+    background-color: rgba(76, 175, 80, 0.9);
+}
+
+.notification.danger {
+    background-color: rgba(244, 67, 54, 0.9);
+}
+
+.notification.fade-out {
+    opacity: 0;
+}
+
+.email-profile-new-year {
+    margin-top: 30px !important;
+    margin-bottom: 30px !important;
+}
+</style>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Поиск пользователей
+    const userSearch = document.getElementById('user-search');
+    const suggestions = document.getElementById('suggestions');
+    const searchBtn = document.getElementById('search-btn');
+    const tableBody = document.getElementById('clusters-table-body');
+
+    userSearch.addEventListener('input', function() {
+        const query = this.value;
+        if (query.length > 0) {
+            fetch(`/adminPanel/users/suggestions/?search=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    suggestions.innerHTML = '';
+                    if (data.length > 0) {
+                        suggestions.style.display = 'block';
+                        data.forEach(user => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.textContent = user.username;
+                            li.addEventListener('click', function() {
+                                userSearch.value = this.textContent;
+                                suggestions.style.display = 'none';
+                                filterTable(this.textContent);
+                            });
+                            suggestions.appendChild(li);
+                        });
+                    } else {
+                        suggestions.style.display = 'none';
+                    }
+                });
+        } else {
+            suggestions.style.display = 'none';
+            filterTable('');
+        }
+    });
+
+    searchBtn.addEventListener('click', function() {
+        filterTable(userSearch.value);
+        suggestions.style.display = 'none';
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!userSearch.contains(e.target) && !suggestions.contains(e.target)) {
+            suggestions.style.display = 'none';
+        }
+    });
+
+    function filterTable(query) {
+        const rows = tableBody.getElementsByTagName('tr');
+        for (let row of rows) {
+            const username = row.getElementsByTagName('td')[1].textContent.toLowerCase();
+            if (username.includes(query.toLowerCase())) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
+
+    // Инициализация
+    const saveBtn = document.getElementById('save-clusters-btn');
+    const clusterSelects = document.querySelectorAll('.cluster-select');
+    const updates = new Map();
+
+    // Отслеживание изменений в select'ах
+    clusterSelects.forEach(select => {
+        const userId = select.dataset.userId;
+        const originalValue = select.dataset.originalValue;
+        
+        select.addEventListener('change', function(e) {
+            const newValue = this.value;
+            const method = this.closest('tr').querySelector('td:last-child').textContent;
+            
+            if (originalValue !== newValue) {
+                updates.set(userId, {
+                    user_id: userId,
+                    cluster: newValue,
+                    method: method
+                });
+            } else {
+                updates.delete(userId);
+            }
+            
+            updateSaveButtonState();
+        });
+    });
+
+    // Функция обновления состояния кнопки
+    function updateSaveButtonState() {
+        if (updates.size > 0) {
+            saveBtn.classList.add('btn-warning');
+            saveBtn.textContent = 'Сохранить*';
+        } else {
+            saveBtn.classList.remove('btn-warning');
+            saveBtn.textContent = 'Сохранить';
+        }
+    }
+
+    // Сохранение изменений
+    document.getElementById('save-clusters-btn').addEventListener('click', function() {
+        if (updates.size === 0) return;
+
+        const updatesArray = Array.from(updates.values());
+        console.log('Sending updates:', updatesArray);  
+
+        fetch('/adminPanel/clusters/update-batch/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                updates: updatesArray
+            })
+        })
+        .then(response => {
+            console.log('Response status:', response.status);  
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);  
+            if (data.success) {
+                // Обновляем original values и очищаем updates
+                updates.forEach((update, userId) => {
+                    const select = document.querySelector(`.cluster-select[data-user-id="${userId}"]`);
+                    if (select) {
+                        select.dataset.originalValue = select.value;
+                    }
+                });
+                updates.clear();
+                updateSaveButtonState();
+                
+                showNotification('Успешно! Изменения сохранены.', 'success');
+            } else {
+                throw new Error(data.error || 'Failed to save changes');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification(`Ошибка: ${error.message}`, 'danger');
+        });
+    });
+
+    function showNotification(message, type) {
+        const container = document.getElementById('notifications-container');
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        
+        container.appendChild(notification);
+        
+        // Start fade out after 2.5 seconds
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+        }, 2500);
+        
+        // Remove notification after fade out (3 seconds total)
+        setTimeout(() => {
+            container.removeChild(notification);
+        }, 3000);
+    }
+
+    // Кнопки кластеризации
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    document.getElementById('kmeans-btn').addEventListener('click', function() {
+        fetch('/adminPanel/clusters/kmeans/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    });
+
+    document.getElementById('cosine-btn').addEventListener('click', function() {
+        fetch('/adminPanel/clusters/cosine/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    });
+
+    // Обучение модели
+    document.getElementById('train-btn').addEventListener('click', function() {
+        fetch('/adminPanel/model/train/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateModelInfo();
+            }
+        });
+    });
+
+    // Обновляем информацию о модели
+    function updateModelInfo() {
+        fetch('/adminPanel/model/info/')
+            .then(response => response.json())
+            .then(data => {
+                // Обновляем параметры модели
+                const paramsDiv = document.getElementById('model-params');
+                paramsDiv.innerHTML = '';
+                
+                for (const [key, value] of Object.entries(data.parameters)) {
+                    const paramRow = document.createElement('div');
+                    paramRow.className = 'mb-2';
+                    paramRow.innerHTML = `<strong>${key}:</strong> ${value}`;
+                    paramsDiv.appendChild(paramRow);
+                }
+
+                // Обновляем график производительности
+                const trace = {
+                    x: data.performance.timestamps,
+                    y: data.performance.metrics,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Производительность',
+                    line: {
+                        color: '#007bff'
+                    }
+                };
+
+                const layout = {
+                    title: 'Производительность',
+                    xaxis: {
+                        title: 'Время',
+                        showgrid: true,
+                        tickangle: 20,
+                        tickfont: {
+                            size: 10
+                        },
+                        titlefont: {
+                            size: 12
+                        },
+                        tickformat: '%Y-%m-%d'  
+                    },
+                    yaxis: {
+                        title: 'Значение метрики',
+                        showgrid: true,
+                        tickfont: {
+                            size: 10
+                        },
+                        titlefont: {
+                            size: 12
+                        }
+                    },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    showlegend: false,
+                    margin: {
+                        t: 30,   
+                        b: 80,   
+                        l: 60,   
+                        r: 10,   
+                        pad: 5   
+                    }
+                };
+
+                const config = {
+                    responsive: true,
+                    displayModeBar: false
+                };
+
+                Plotly.newPlot('performance-chart', [trace], layout, config);
+            });
+    }
+
+    // Обновляем информацию каждые 30 секунд
+    setInterval(updateModelInfo, 30000);
+
+    // Инициализируем при загрузке
+    updateModelInfo();
+});
+</script>
+{% endblock contentExtra %}

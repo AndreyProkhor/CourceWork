@@ -1,0 +1,85 @@
+{% load report_filters %}
+
+<div class="report-container">
+    <div class="report-header mb-4">
+        <h4>Detailed Report for {{ user.email }}</h4>
+        <p class="text-muted">Period: {{ start_date|date:"d/m/Y" }} - {{ end_date|date:"d/m/Y" }}</p>
+    </div>
+
+    <div class="report-stats mb-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h5>Total Orders</h5>
+                    <p class="h3">{{ total_orders }}</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h5>Total Amount</h5>
+                    <p class="h3">${{ total_amount|floatformat:2 }}</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h5>Average Order Value</h5>
+                    <p class="h3">${{ total_amount|divide:total_orders|default:0|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="report-orders mb-4">
+        <h5>Order Details</h5>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.created|date:"d/m/Y H:i" }}</td>
+                        <td><span class="badge bg-{{ order.status|lower }}">{{ order.status }}</span></td>
+                        <td>{{ order.items.count }}</td>
+                        <td>${{ order.total_cost|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="report-status mb-4">
+        <h5>Orders by Status</h5>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
+                        <th>Total Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for status, count in status_counts.items %}
+                    <tr>
+                        <td>{{ status }}</td>
+                        <td>{{ count }}</td>
+                        <td>{{ count|multiply:100|divide:total_orders|floatformat:1 }}%</td>
+                        <td>${{ orders|filter_by_status:status|sum_total_cost|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

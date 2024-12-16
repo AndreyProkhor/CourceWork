@@ -1,0 +1,62 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Вход{% endblock title %}
+
+{% block content %}
+    {% if form.non_field_errors or form.username.errors or form.password.errors %}
+    <div class="position-fixed top-50 start-50 translate-middle" style="z-index: 1050; text-align: center;">
+        <div id="error-alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Ошибка</strong>
+            <ul>
+                {% if form.non_field_errors %}
+                    <li>{{ form.non_field_errors }}</li>
+                {% endif %}
+                {% if form.username.errors %}
+                    <li>{{ form.username.errors }}</li>
+                {% endif %}
+                {% if form.password.errors %}
+                    <li>{{ form.password.errors }}</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    <section class="login d-flex">
+        <div class="login-title">
+            <h2 class="mb-3 text-style">Вход</h2>
+            <form action="{% url "user:login" %}" method = "post" class="reset-pass">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+                <div class="mb-3 text-style">
+                    <label for="id_username" class="form-label form-style">Логин</label>
+                    <input type="text" class="form-control form-style text-alignment"
+                    value="{% if form.username.value %}{{form.username.value}}{% endif %}"
+                    name="username" id="id_username" placeholder="Input username" required>
+                </div>
+                <div class="mb-3 text-style">
+                    <label for="id_password" class="form-label form-style">Пароль</label>
+                    <input type="password" class="form-control form-style text-alignment"
+                    name="password" id="id_password" placeholder="Input password" required>
+                </div>
+                <button type="submit" class="login-btn form-style ">Войти</button>
+            </form>
+            <div class="reset-pass">
+                <hr>
+                <div class="mt-1">
+                    <a href="{% url 'mailagent:password_reset' %}">Сбросить пароль</a> | <a href="{% url "user:registration" %}">Создать аккаунт</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    <script>
+        setTimeout(function() {
+            const alert = document.getElementById('error-alert');
+            if (alert) {
+                alert.classList.remove('show');
+                alert.classList.add('fade');
+                alert.style.display = 'none';
+            }
+        }, 3000);
+    </script>
+{% endblock content %}

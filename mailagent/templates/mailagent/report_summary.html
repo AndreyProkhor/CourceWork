@@ -1,0 +1,115 @@
+{% load report_filters %}
+
+<div class="report-container">
+    <div class="report-header mb-4">
+        <h4>Summary Report for {{ user.email }}</h4>
+        <p class="text-muted">Period: {{ start_date|date:"d/m/Y" }} - {{ end_date|date:"d/m/Y" }}</p>
+    </div>
+
+    <div class="report-stats mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="stat-card">
+                    <h5>Total Orders</h5>
+                    <p class="h3">{{ total_orders }}</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="stat-card">
+                    <h5>Total Amount</h5>
+                    <p class="h3">${{ total_amount|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="report-status mb-4">
+        <h5>Orders by Status</h5>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for status, count in status_counts.items %}
+                    <tr>
+                        <td>{{ status }}</td>
+                        <td>{{ count }}</td>
+                        <td>{{ count|multiply:100|divide:total_orders|floatformat:1 }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="report-orders mb-4">
+        <h5>Order Details</h5>
+        {% for order in orders %}
+        <div class="order-card mb-4">
+            <div class="order-header">
+                <h6>Order #{{ order.id }} - {{ order.status }}</h6>
+                <p class="text-muted">Created: {{ order.created|date:"d/m/Y H:i" }}</p>
+                <p class="text-muted">Total: ${{ order.get_total_cost|floatformat:2 }}</p>
+            </div>
+            <div class="order-items">
+                <div class="row">
+                    {% for item in order.items.all %}
+                    <div class="col-md-4 mb-3">
+                        <div class="product-card">
+                            {% if item.product.image %}
+                            <img src="{{ site_url }}{{ item.product.image.url }}" alt="{{ item.product.name }}" class="img-fluid mb-2" style="max-width: 200px;">
+                            {% endif %}
+                            <h6>{{ item.product.name }}</h6>
+                            <p>Quantity: {{ item.quantity }}</p>
+                            <p>Price: ${{ item.get_cost|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.report-container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-card {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.order-card {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.product-card {
+    background-color: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.product-card img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    border-radius: 4px;
+    max-width: 200px;
+}
+</style>
